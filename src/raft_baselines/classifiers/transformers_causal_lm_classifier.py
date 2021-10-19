@@ -57,20 +57,25 @@ class TransformersCausalLMClassifier(InContextClassifier):
         self,
         prompt: str,
     ) -> List[float]:
+        # import ipdb; ipdb.set_trace()
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        # inputs is dict with input_ids and attention mask
 
         with torch.no_grad():
             output = self.model(**inputs)
 
+        # torch.Size([1, 961, 50257]), softmax of next token probs, vector
         next_token_probs = torch.softmax(output.logits[0][-1], dim=0)
 
         def get_prob_for_class(clas):
+            # import ipdb; ipdb.set_trace()
             clas_str = (
                 f" {clas}"
                 if not self.add_prefixes
                 else f" {self.classes.index(clas) + 1}"
             )
 
+            # tokenize answer then check prob of first toekn 
             return next_token_probs[self.tokenizer(clas_str)["input_ids"][0]]
 
         return (

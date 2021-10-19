@@ -25,7 +25,7 @@ class InContextClassifier(Classifier):
     def __init__(
         self,
         training_data: datasets.Dataset,
-        num_prompt_training_examples: int = 20,
+        num_prompt_training_examples: int = 2,
         add_prefixes: bool = False,
         config: str = None,
         use_task_specific_instructions: bool = True,
@@ -164,7 +164,7 @@ class InContextClassifier(Classifier):
         ...
 
     def select_training_examples(
-        self, target: Mapping[str, str], random_seed: Optional[int] = None
+        self, target: Mapping[str, str], random_seed: Optional[int] = None, prompt_id = None,
     ) -> datasets.Dataset:
         # handle edge case where target is blank (all the fields we selected are empty)
         if not self.do_semantic_selection or not self.format_dict(target):
@@ -178,13 +178,24 @@ class InContextClassifier(Classifier):
             for i, row in enumerate(self.training_data):
                 uniques[row["Label"]].append(i)
 
+            # import ipdb; ipdb.set_trace()
+
+            # Select at least 1 example from each class
             indices = []
             for key in uniques:
-                indices.append(random.choice(uniques[key]))
+                rand_idx = prompt_id
+                j = 0
+                # this can fail to sample another id when there's only 1 in the class
+                while rand_idx == prompt_id and j < 10:
+                    rand_idx = random.choice(uniques[key])
+                    j += 1
+
+                if j != 10:
+                    indices.append(rand_idx)
             random.shuffle(indices)
 
             remaining_indices = [
-                i for i in range(len(self.training_data)) if i not in indices
+                i for i in range(len(self.training_data)) if (i not in indices and i != prompt_id)
             ]
             indices += random.sample(
                 remaining_indices, min(n_ex, len(remaining_indices))
@@ -199,6 +210,7 @@ class InContextClassifier(Classifier):
         target: Mapping[str, str],
         example_dataset: Optional[datasets.Dataset] = None,
     ) -> str:
+        # import ipdb; ipdb.set_trace()
         if self.truncation_params is None:
             raise ValueError("No truncation strategy provided.")
 
@@ -246,14 +258,16 @@ class InContextClassifier(Classifier):
         random_seed: Optional[int] = None,
         should_print_prompt: bool = False,
     ) -> Dict[str, float]:
+        # import ipdb; ipdb.set_trace()
         ordered_target = {col: target[col] for col in self.input_cols if col in target}
 
         example_dataset = (
-            self.select_training_examples(ordered_target, random_seed=random_seed)
+            self.select_training_examples(ordered_target, random_seed=random_seed, prompt_id = target['ID'])
             if self.num_prompt_training_examples > 0
             else None
         )
 
+        # import ipdb; ipdb.set_trace()
         prompt = self.format_prompt(ordered_target, example_dataset)
         if should_print_prompt:
             print(prompt)

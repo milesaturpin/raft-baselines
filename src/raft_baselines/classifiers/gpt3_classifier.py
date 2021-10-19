@@ -85,6 +85,7 @@ class GPT3Classifier(InContextClassifier):
         self,
         prompt: str,
     ) -> List[float]:
+        import ipdb; ipdb.set_trace()
         response = complete(
             prompt,
             temperature=0.0,
@@ -94,10 +95,22 @@ class GPT3Classifier(InContextClassifier):
         logprobs: Dict[str, float] = response["choices"][0]["logprobs"]["top_logprobs"][
             0
         ]
+        """
+        <OpenAIObject at 0x7fd4d9deef90> JSON: {
+            " doesn": -1.9071165,
+            " includes": -5.909603,
+            " mentioned": -5.65924,
+            " mentions": -0.23675801,
+            " says": -5.552383
+            }
+        """
 
         raw_p = []
+        # iterate over class strings e.g. " doesn't mention ..."
         for clas in self.classes:
             p = 0.0
+            # for each class string, iterate over the top p token probabilities, and check if
+            # token prob is compatible with class??? e.g. ' doesn'
             for token in logprobs.keys():
                 if self.does_token_match_class(token, clas):
                     p += np.exp(logprobs[token])
